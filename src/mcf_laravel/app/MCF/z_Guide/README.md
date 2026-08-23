@@ -741,63 +741,399 @@ if ($result->is(AuthenticationResult::SUCCESS)) {
 
 ## 3. Access Control {#3-access-control}
 
-MCF Access Control separates two concerns:
+MCF Access Control provides a framework-level authorization layer for
+Laravel Routes.
+
+Its responsibility is to define and evaluate:
 
 ``` text
+Route
+   ↓
 Guard
    ↓
-Who can access the Route?
+Who is allowed to access the Route?
 
-Access + Permissions
+Permission
    ↓
-What can the user do after Route access is allowed?
+What capability does the Route represent?
+
+Access
+   ↓
+How is the Permission list interpreted?
 ```
+
+MCF Access Control is intentionally independent from the source of the
+authorization data.
+
+The data may come from:
+
+``` text
+PHP
+Configuration
+Database
+Generated application data
+Another service
+Any other source chosen by the developer
+```
+
+MCF Access Control does not need to know where the data came from.
+
+The developer supplies the appropriate Access Control data and MCF
+evaluates it.
+
+MCF Access Control does **not** depend on:
+
+``` text
+RolePage
+Dynamic Data
+A specific database schema
+A specific application Module
+A specific application Workflow
+```
+
+Those are application-level concerns.
 
 ### Guards
 
-Supported guards include:
+MCF provides Route Access types for different authorization models:
 
 ``` text
-any
-guest
-auth
-role
+AnyRouteAccess
+GuestRouteAccess
+AuthRouteAccess
+RoleRouteAccess
+CustomRouteAccess
 ```
 
-Examples:
+They are intentionally different and should not be treated as
+interchangeable.
+
+The basic Guard-based Route Access types are:
+
+``` text
+AnyRouteAccess
+    → routeNames[]
+
+GuestRouteAccess
+    → routeNames[]
+
+AuthRouteAccess
+    → routeNames[]
+```
+
+Permission-aware Route Access is provided by:
+
+``` text
+RoleRouteAccess
+CustomRouteAccess
+```
+
+### AnyRouteAccess
+
+`AnyRouteAccess` is used when a Route does not require authentication or
+Role authorization.
 
 ``` php
 new AnyRouteAccess(
-    routeNames: ['home'],
-);
-```
-
-``` php
-new GuestRouteAccess(
-    routeNames: ['user.auth.login'],
-);
-```
-
-``` php
-new AuthRouteAccess(
-    routeNames: ['user.profile.index'],
-);
-```
-
-Role-based access:
-
-``` php
-new RoleRouteAccess(
-    routeNames: ['admin.users.index'],
-    roles: [
-        new RoleData(role: 1),
+    routeNames: [
+        'home',
+        'about',
     ],
 )
 ```
 
+It only defines the Route names.
+
+It does not receive:
+
+``` text
+RoleData
+RoutePermission
+Access
+Permissions
+```
+
+### GuestRouteAccess
+
+`GuestRouteAccess` is used for Routes intended for guest users.
+
+``` php
+new GuestRouteAccess(
+    routeNames: [
+        'user.auth.login',
+        'user.auth.register',
+    ],
+)
+```
+
+It only defines the Route names.
+
+It does not use the Role Permission structure.
+
+### AuthRouteAccess
+
+`AuthRouteAccess` is used for Routes that require an authenticated
+user.
+
+``` php
+new AuthRouteAccess(
+    routeNames: [
+        'user.profile.index',
+        'user.profile.settings',
+    ],
+)
+```
+
+`AuthRouteAccess` intentionally remains a simple authenticated Guard
+definition.
+
+It does **not** receive:
+
+``` text
+access
+permissions
+RoutePermission
+RoleData
+```
+
+Do not write:
+
+``` php
+new AuthRouteAccess(
+    routeNames: [
+        'user.profile.index',
+    ],
+    access: 'only',
+    permissions: [
+        'view',
+    ],
+)
+```
+
+If an authenticated Route requires the Permission-based model, use
+`CustomRouteAccess`.
+
+### RoleRouteAccess
+
+`RoleRouteAccess` is used when Route authorization depends on Roles.
+
+Its model combines:
+
+``` text
+Route Names
++
+RoleData[]
+```
+
+Example:
+
+``` php
+new RoleRouteAccess(
+    routeNames: [
+        'user.userManagement.index',
+        'user.userManagement.disable',
+        'user.userManagement.enable',
+        'user.userManagement.delete',
+        'user.userManagement.restore',
+    ],
+
+    roles: [
+        new RoleData(
+            role: 1,
+        ),
+    ],
+)
+```
+
+`RoleData` carries the Role-specific Access configuration.
+
+For example:
+
+``` php
+new RoleData(
+    role: 2,
+    access: 'only',
+    permissions: [
+        'view',
+        'create',
+        'update',
+    ],
+)
+```
+
+Conceptually:
+
+``` text
+RoleRouteAccess
+    ↓
+Route Names
+    +
+RoleData[]
+        ↓
+Access
+        ↓
+Permissions
+```
+
+The Role model is therefore:
+
+``` text
+Role
+    ↓
+Access
+    ↓
+Permissions
+```
+
+while the Route names define which Routes belong to that Role Access
+definition.
+
+### CustomRouteAccess
+
+`CustomRouteAccess` is the direct Guard-based Permission model.
+
+It is used when the developer wants the same Permission and Access
+concept used by Role-based authorization, but without `RoleData`.
+
+Its structure is:
+
+``` text
+CustomRouteAccess
+    ├── routes: RoutePermission[]
+    ├── guard: GuardType
+    ├── access: string
+    └── permissions: string[]
+```
+
+Example:
+
+``` php
+new CustomRouteAccess(
+    routes: [
+
+        new RoutePermission(
+            permission: 'view',
+            routes: [
+                'user.userManagement.index',
+            ],
+        ),
+
+        new RoutePermission(
+            permission: 'create',
+            routes: [
+                'user.userManagement.create',
+                'user.userManagement.store',
+            ],
+        ),
+
+    ],
+
+    guard: GuardType::AUTH,
+
+    access: 'only',
+
+    permissions: [
+        'view',
+        'create',
+    ],
+)
+```
+
+The model is:
+
+``` text
+CustomRouteAccess
+    ↓
+Guard
+    ↓
+RoutePermission[]
+    ↓
+Access
+    ↓
+Permissions
+```
+
+There is no `RoleData` inside `CustomRouteAccess`.
+
+The developer chooses the Guard directly.
+
+For example:
+
+``` php
+guard: GuardType::AUTH
+```
+
+This makes `CustomRouteAccess` useful when authorization should be
+Permission-based without being tied to a Role.
+
+### RoutePermission
+
+`RoutePermission` maps a Permission name to one or more Laravel Route
+names.
+
+Example:
+
+``` php
+new RoutePermission(
+    permission: 'create',
+    routes: [
+        'user.userManagement.create',
+        'user.userManagement.store',
+    ],
+)
+```
+
+This means:
+
+``` text
+Permission:
+create
+
+Routes:
+user.userManagement.create
+user.userManagement.store
+```
+
+A Permission name does not need to match a Route name.
+
+For example:
+
+``` text
+Route:
+user.userManagement.store
+
+Permission:
+create
+```
+
+is completely valid.
+
+One Permission can represent multiple Routes.
+
+This is useful when several technical endpoints represent one
+application capability.
+
+For example:
+
+``` text
+view
+    → users.index
+
+create
+    → users.create
+    → users.store
+
+update
+    → users.edit
+    → users.update
+
+delete
+    → users.delete
+```
+
 ### Access Modes
 
-The permission list can be interpreted as:
+Permission-aware Route Access supports four Access modes:
 
 ``` text
 all
@@ -806,29 +1142,432 @@ only
 except
 ```
 
-For example:
+These modes are used by the Permission-aware definitions:
+
+``` text
+RoleRouteAccess
+CustomRouteAccess
+```
+
+They are not parameters of:
+
+``` text
+AnyRouteAccess
+GuestRouteAccess
+AuthRouteAccess
+```
+
+#### all
+
+`all` means all Permissions are allowed.
+
+Example:
 
 ``` php
-new AuthRouteAccess(
-    routeNames: ['users.index'],
-    access: 'only',
-    permissions: ['create', 'update'],
+new RoleData(
+    role: 1,
+    access: 'all',
 )
 ```
 
-This means:
+An empty Permission list with `all` still means Full Access:
 
 ``` text
-create → allowed
-update → allowed
-delete → denied
-export → denied
+all + []
+    = Full Access
 ```
 
-The important rule is:
+Only `all` grants Full Access.
 
-> **Guard controls Route access. Access and Permissions control Actions
-> after Route access.**
+#### none
+
+`none` means no Permissions are allowed.
+
+``` php
+new RoleData(
+    role: 2,
+    access: 'none',
+)
+```
+
+Result:
+
+``` text
+view    → denied
+create  → denied
+update  → denied
+delete  → denied
+```
+
+#### only
+
+`only` means only the listed Permissions are allowed.
+
+``` php
+new RoleData(
+    role: 3,
+    access: 'only',
+    permissions: [
+        'view',
+        'create',
+        'update',
+    ],
+)
+```
+
+Result:
+
+``` text
+view    → allowed
+create  → allowed
+update  → allowed
+delete  → denied
+```
+
+An empty list means:
+
+``` text
+only + []
+    = No Permissions
+```
+
+#### except
+
+`except` means all Permissions except the listed Permissions are
+allowed.
+
+``` php
+new RoleData(
+    role: 4,
+    access: 'except',
+    permissions: [
+        'delete',
+    ],
+)
+```
+
+Result:
+
+``` text
+view    → allowed
+create  → allowed
+update  → allowed
+delete  → denied
+```
+
+An empty list means:
+
+``` text
+except + []
+    = No Permissions
+```
+
+This avoids accidentally turning an empty exclusion list into Full
+Access.
+
+### Access Summary
+
+| Access | Permissions | Result |
+|---|---|---|
+| `all` | `[]` | All Permissions |
+| `all` | any list | All Permissions |
+| `none` | `[]` | No Permissions |
+| `none` | any list | No Permissions |
+| `only` | `[]` | No Permissions |
+| `only` | `[create]` | Create only |
+| `only` | `[create, update]` | Create and Update |
+| `except` | `[]` | No Permissions |
+| `except` | `[delete]` | Everything except Delete |
+
+The security rule is:
+
+> **Only `all` grants Full Access.**
+
+### Permission Checking
+
+Permissions are developer-defined.
+
+MCF does not impose a fixed Permission vocabulary.
+
+An application may use:
+
+``` php
+McfAccess::can('view');
+
+McfAccess::can('create');
+
+McfAccess::can('update');
+
+McfAccess::can('delete');
+```
+
+It may also define application-specific capabilities:
+
+``` php
+McfAccess::can('approve');
+
+McfAccess::can('publish');
+
+McfAccess::can('restore');
+
+McfAccess::can('export');
+```
+
+The same Permission name should be used consistently between the
+Access Control definition and the application check.
+
+Example:
+
+``` php
+new RoutePermission(
+    permission: 'approve',
+    routes: [
+        'orders.approve',
+    ],
+)
+```
+
+Then:
+
+``` php
+McfAccess::can('approve');
+```
+
+### Using Access Control in Blade
+
+MCF exposes `McfAccess` directly to Blade.
+
+Example:
+
+``` blade
+@if (McfAccess::can('users.view'))
+    <a href="{{ route('users.index') }}">
+        {{ __('Users') }}
+    </a>
+@endif
+```
+
+Another example:
+
+``` blade
+@if (McfAccess::can('create'))
+    <button type="button">
+        {{ __('Create') }}
+    </button>
+@endif
+```
+
+The View does not need to know whether the authorization data came from
+PHP, configuration, a database, or another source.
+
+It only asks MCF whether the Permission is allowed.
+
+### Route vs Permission
+
+A Route is a Laravel endpoint:
+
+``` text
+users.store
+```
+
+A Permission represents an application capability:
+
+``` text
+create
+```
+
+They are deliberately separate.
+
+The developer maps them explicitly:
+
+``` php
+new RoutePermission(
+    permission: 'create',
+    routes: [
+        'users.create',
+        'users.store',
+    ],
+)
+```
+
+Therefore:
+
+``` text
+Routes
+    ↓
+Technical endpoints
+
+Permissions
+    ↓
+Application capabilities
+```
+
+MCF does not require the application to use a Page/Action architecture.
+
+However, an application may naturally map:
+
+``` text
+Page Route
+    ↓
+Displays UI
+
+Action Route
+    ↓
+Performs an operation
+```
+
+to:
+
+``` text
+view
+    → users.index
+
+create
+    → users.create
+    → users.store
+
+update
+    → users.edit
+    → users.update
+
+delete
+    → users.delete
+```
+
+### RoleRouteAccess vs CustomRouteAccess
+
+The two Permission-aware models serve different authorization sources.
+
+``` text
+RoleRouteAccess
+    ↓
+Route Names
++
+RoleData[]
+```
+
+versus:
+
+``` text
+CustomRouteAccess
+    ↓
+GuardType
++
+RoutePermission[]
++
+Access
++
+Permissions[]
+```
+
+In other words:
+
+``` text
+RoleRouteAccess
+    → Role-based Permission authorization
+
+CustomRouteAccess
+    → Direct Guard-based Permission authorization
+```
+
+`CustomRouteAccess` does not contain `RoleData`.
+
+### Registry
+
+Route Access definitions are registered through:
+
+``` php
+McfRouteDataRegistry::register(
+    $accessRoutes,
+);
+```
+
+Example:
+
+``` php
+$accessRoutes = [
+
+    new RoleRouteAccess(
+        routeNames: [
+            'admin.users.index',
+            'admin.users.create',
+            'admin.users.store',
+        ],
+
+        roles: [
+            new RoleData(
+                role: 1,
+            ),
+        ],
+    ),
+];
+
+McfRouteDataRegistry::register(
+    $accessRoutes,
+);
+```
+
+The Registry is responsible for registering and making Route Access
+definitions available to MCF.
+
+It is not responsible for application-specific business logic or for
+deciding where authorization data should come from.
+
+### Data Source Independence
+
+MCF Access Control does not require authorization data to come from a
+specific source.
+
+For example, the developer may define:
+
+``` php
+new RoleData(
+    role: 1,
+)
+```
+
+directly in a Route file.
+
+Another application may construct the same MCF data from its own
+database or another source.
+
+Both approaches are valid.
+
+The Access Control layer only receives the resulting framework data
+objects.
+
+This separation allows an application to change its data source
+without changing the fundamental Access Control API.
+
+### Security Rules
+
+The core rules are:
+
+1. `all` is the only Access mode that grants Full Access.
+2. `none` grants no Permissions.
+3. `only + []` grants no Permissions.
+4. `except + []` grants no Permissions.
+5. Unknown Access values should fail securely.
+6. `AnyRouteAccess` receives Route names only.
+7. `GuestRouteAccess` receives Route names only.
+8. `AuthRouteAccess` receives Route names only.
+9. Permission-aware authenticated access belongs in
+   `CustomRouteAccess`.
+10. `CustomRouteAccess` uses a `GuardType` directly.
+11. `CustomRouteAccess` does not use `RoleData`.
+12. `RoleRouteAccess` uses `RoleData`.
+13. A Permission name does not need to match a Route name.
+14. Multiple Routes can belong to one Permission.
+15. MCF Access Control does not require a database.
+16. MCF Access Control does not require Dynamic Data.
+17. MCF Access Control does not depend on RolePage or any other
+    application-specific Module or Workflow.
+18. The developer is free to choose the source of the authorization
+    data.
+19. The framework only requires the developer to provide the correct
+    Access Control data.
+20. Conflicting Route Access definitions should not silently overwrite
+    one another.
 
 ------------------------------------------------------------------------
 
