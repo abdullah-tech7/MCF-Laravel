@@ -6,17 +6,17 @@ namespace App\MCF\AccessControl\Data;
 
 use App\MCF\AccessControl\Enum\GuardType;
 
-final readonly class GuestRouteAccess extends BaseRouteAccess
+abstract readonly class PermissionRouteAccess extends RouteAccess
 {
     /**
-     * @param string[] $routeNames
+     * @param RoutePermission[] $routes
      */
     public function __construct(
-        array $routeNames,
+        public array $routes,
+        GuardType $guard,
     ) {
         parent::__construct(
-            routeNames: $routeNames,
-            guard: GuardType::GUEST,
+            guard: $guard,
         );
     }
 }

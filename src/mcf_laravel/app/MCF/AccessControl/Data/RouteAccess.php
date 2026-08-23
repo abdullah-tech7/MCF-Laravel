@@ -8,11 +8,7 @@ use App\MCF\AccessControl\Enum\GuardType;
 
 abstract readonly class RouteAccess
 {
-    /**
-     * @param string[] $routeNames
-     */
     public function __construct(
-        public array $routeNames,
         public GuardType $guard,
     ) {
     }

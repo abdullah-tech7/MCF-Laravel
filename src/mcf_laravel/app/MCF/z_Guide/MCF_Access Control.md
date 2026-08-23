@@ -455,3 +455,216 @@ Permissions: delete
 ```
 
 Meaning: Role 3 can access the route and has every permission except Delete.
+
+
+# MCF — Role Access and Action Routes
+
+## Rule
+
+When a route is protected by `RoleRouteAccess` and authorization depends dynamically on the user's Role from the database:
+
+- Register **actual Page Routes only** in `RoleRouteAccess`.
+- Do not pass Action/Operation Routes into `routeNames`.
+- The Action Route remains a normal Laravel Route, but it performs the required Permission check directly before calling the Controller.
+
+### Page Route
+
+A Page Route represents an actual page and may have a corresponding record in the `pages` table. Therefore, it belongs in `RoleRouteAccess`.
+
+Example:
+
+```php
+Route::get('/userManagement', [UserManagementController::class, 'index'])
+    ->name('user.userManagement.index');
+
+Route::get('/userManagement/create', [UserManagementController::class, 'create'])
+    ->name('user.userManagement.create');
+
+Route::get('/userManagement/{id}/edit', [UserManagementController::class, 'edit'])
+    ->whereNumber('id')
+    ->name('user.userManagement.edit');
+```
+
+Then:
+
+```php
+new RoleRouteAccess(
+    routeNames: [
+        'user.userManagement.index',
+        'user.userManagement.create',
+        'user.userManagement.edit',
+    ],
+    roles: [
+        new RoleData(
+            role: 1,
+            access: 'all',
+            permissions: [],
+        ),
+    ],
+)
+```
+
+## Action Route
+
+An Action Route is not an independent Page. It is an endpoint that performs an operation within a page.
+
+Examples:
+
+```text
+store
+update
+delete
+disable
+enable
+restore
+```
+
+These Routes are not registered in `RoleRouteAccess` when their authorization is Role-based and dynamic.
+
+Instead, the Permission is checked directly in the Route before calling the Controller.
+
+Example:
+
+```php
+Route::post('/userManagement/{user}/delete', function ($user) {
+
+    if (! McfAccess::can('delete')) {
+        abort(403);
+    }
+
+    return app(UserManagementController::class)->delete($user);
+
+})->name('user.userManagement.delete');
+```
+
+Flow:
+
+```text
+Action Route
+    ↓
+McfAccess::can('delete')
+    ↓
+Current Role
+    ↓
+Role Data / RolePage
+    ↓
+Permission
+    ↓
+true  → Controller
+false → 403
+```
+
+## Page vs Permission
+
+Do not confuse a Page Route with a Permission, even when the words are similar.
+
+Example:
+
+```text
+user.userManagement.create
+```
+
+This is a **Page Route** for the user creation page.
+
+Whereas:
+
+```text
+create
+```
+
+is a **Permission** that allows the creation operation.
+
+Likewise:
+
+```text
+user.userManagement.edit
+```
+
+is a Page Route.
+
+Whereas:
+
+```text
+update
+```
+
+is the Permission for performing an update.
+
+And:
+
+```text
+user.userManagement.store
+```
+
+is an Action Route that performs the creation operation. It is checked using:
+
+```php
+McfAccess::can('create')
+```
+
+## When This Rule Does Not Apply
+
+This rule applies specifically to dynamic Role-based access.
+
+If a Route uses `AuthRouteAccess` or another static access type that does not depend on the user's Role, there is no problem with registering different Routes, including Action Routes, directly in `routeNames`.
+
+Example:
+
+```php
+new AuthRouteAccess(
+    routeNames: [
+        'user.profile.index',
+        'user.profile.updatePassword',
+        'user.profile.updatePasswordPost',
+        'user.profile.updateEmail',
+        'user.profile.updateEmailPost',
+        'user.profile.deleteAccountPost',
+    ],
+)
+```
+
+Authentication is the protection mechanism here, not Role-specific authorization.
+
+## Short Rule
+
+```text
+RoleRouteAccess + Dynamic Role
+    ↓
+Page Routes only
+    ↓
+Action Routes
+    ↓
+McfAccess::can(permission)
+```
+
+Whereas:
+
+```text
+AuthRouteAccess / Static Access
+    ↓
+Required Routes may be registered directly
+    ↓
+Action Routes do not need to be separated using this rule
+```
+
+## Design Principle
+
+A Page answers:
+
+> Can this Role access this page?
+
+A Permission answers:
+
+> What can the user execute within the page?
+
+Therefore:
+
+```text
+Page Route
+    → RoleRouteAccess / RolePage
+
+Action Route
+    → Permission
+```
+
+Do not turn every Action into an independent Page merely to apply Role-based access to it.

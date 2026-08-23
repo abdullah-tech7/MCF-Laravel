@@ -15,7 +15,10 @@ final class McfRoleDataRegistry
     private static array $roles = [];
 
     /**
-     * Register role data for a specific route.
+     * Register RoleData for a specific Route.
+     *
+     * One Role may only be registered once
+     * for the same Route.
      *
      * @throws RuntimeException
      */
@@ -36,6 +39,9 @@ final class McfRoleDataRegistry
         self::$roles[$routeName][$roleData->role] = $roleData;
     }
 
+    /**
+     * Get RoleData for a specific Route and Role.
+     */
     public static function get(
         string $routeName,
         int|string $role,
@@ -44,14 +50,19 @@ final class McfRoleDataRegistry
     }
 
     /**
+     * Get all RoleData registered for a Route.
+     *
      * @return array<int|string, RoleData>
      */
-    public static function allForRoute(string $routeName): array
-    {
+    public static function allForRoute(
+        string $routeName,
+    ): array {
         return self::$roles[$routeName] ?? [];
     }
 
     /**
+     * Get the complete RoleData registry.
+     *
      * @return array<string, array<int|string, RoleData>>
      */
     public static function all(): array
