@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
 
 namespace App\MCF\Modules\User\Auth\Backend\Request;
+use Illuminate\Validation\Rules\Password;
 
 use App\MCF\Base\MfcRequest;
 
@@ -20,15 +22,14 @@ final class ResetPasswordRequest extends MfcRequest
     public function rules(): array
     {
         return [
-            'password' => [
+          'password' => [
                 'required',
-                'string',
+                Password::min(8)
+                    ->letters()
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
                 'confirmed',
-            ],
-
-            'password_confirmation' => [
-                'required',
-                'string',
             ],
         ];
     }
@@ -36,14 +37,27 @@ final class ResetPasswordRequest extends MfcRequest
     public function messages(): array
     {
         return [
-            'password.required' =>
-                __('Password is required.'),
+        'password.required'              =>
+            __('Password is required.'),
 
-            'password.confirmed' =>
-                __('The password confirmation does not match.'),
+            'password.confirmed'             =>
+            __('Password confirmation does not match.'),
 
-            'password_confirmation.required' =>
-                __('Password confirmation is required.'),
+            'password.min'                   =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
+            'password.letters'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
+            'password.mixed'                 =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
+            'password.numbers'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
+            'password.symbols'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
         ];
     }
 }
@@ -52,7 +66,6 @@ final readonly class ResetPasswordData
 {
     public function __construct(
         public string $password,
-        public string $password_confirmation,
     ) {
     }
 }

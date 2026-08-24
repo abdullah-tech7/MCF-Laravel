@@ -277,6 +277,8 @@
     "Unable to find the account.": "تعذر العثور على الحساب.",
     "Unable to send the restoration code. Please try again.": "تعذر إرسال رمز الاستعادة. يرجى المحاولة مرة أخرى.",
     "Unable to verify the account restoration request. Please try again.": "تعذر التحقق من طلب استعادة الحساب. يرجى المحاولة مرة أخرى.",
+    "Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل، وأن تحتوي على أحرف كبيرة وصغيرة ورقم ورمز.",
+
 
     "--- User | Profile ---": "----------------------------------------",
     "Update Password": "تغيير كلمة المرور",

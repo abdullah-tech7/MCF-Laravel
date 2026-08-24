@@ -1,5 +1,6 @@
 <?php
 
+declare(strict_types=1);
 
 namespace App\MCF\Modules\User\Auth\Backend\Request;
 
@@ -43,12 +44,12 @@ final class RegisterRequest extends MfcRequest
 
             'password' => [
                 'required',
-                'confirmed',
                 Password::min(8)
                     ->letters()
                     ->mixedCase()
                     ->numbers()
                     ->symbols(),
+                'confirmed',
             ],
         ];
     }
@@ -77,26 +78,27 @@ final class RegisterRequest extends MfcRequest
             'phone.unique' =>
                 __('This phone number is already registered.'),
 
-            'password.required' =>
-                __('Password is required.'),
+            'password.required'              =>
+            __('Password is required.'),
 
-            'password.confirmed' =>
-                __('Password confirmation does not match.'),
+            'password.confirmed'             =>
+            __('Password confirmation does not match.'),
 
-            'password.min' =>
-                __('Password must be at least 8 characters long.'),
+            'password.min'                   =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.letters' =>
-                __('Password must contain at least one letter.'),
+            'password.letters'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.mixed' =>
-                __('Password must contain both uppercase and lowercase letters.'),
+            'password.mixed'                 =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.numbers' =>
-                __('Password must contain at least one number.'),
+            'password.numbers'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.symbols' =>
-                __('Password must contain at least one symbol.'),
+            'password.symbols'               =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
+
         ];
     }
 }

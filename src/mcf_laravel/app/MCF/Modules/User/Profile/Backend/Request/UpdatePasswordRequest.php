@@ -1,5 +1,6 @@
 <?php
 
+declare (strict_types = 1);
 
 namespace App\MCF\Modules\User\Profile\Backend\Request;
 
@@ -25,15 +26,14 @@ final class UpdatePasswordRequest extends MfcRequest
                 'required',
                 'string',
             ],
-
-            'password' => [
+            'password'         => [
                 'required',
-                'confirmed',
                 Password::min(8)
                     ->letters()
                     ->mixedCase()
                     ->numbers()
                     ->symbols(),
+                'confirmed',
             ],
         ];
     }
@@ -42,28 +42,27 @@ final class UpdatePasswordRequest extends MfcRequest
     {
         return [
             'current_password.required' =>
-                __('Current password is required.'),
+            __('Current password is required.'),
 
-            'password.required' =>
-                __('New password is required.'),
+            'password.required'         =>
+            __('New password is required.'),
 
-            'password.confirmed' =>
-                __('Password confirmation does not match.'),
+            'password.confirmed'        =>
+            __('Password confirmation does not match.'),
+            'password.min'              =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.min' =>
-                __('Password must be at least 8 characters long.'),
+            'password.letters'          =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.letters' =>
-                __('Password must contain at least one letter.'),
+            'password.mixed'            =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.mixed' =>
-                __('Password must contain both uppercase and lowercase letters.'),
+            'password.numbers'          =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
 
-            'password.numbers' =>
-                __('Password must contain at least one number.'),
-
-            'password.symbols' =>
-                __('Password must contain at least one symbol.'),
+            'password.symbols'          =>
+            __('Password must be at least 8 characters long and include uppercase and lowercase letters, a number, and a symbol.'),
         ];
     }
 }
