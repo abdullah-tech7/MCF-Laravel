@@ -560,6 +560,8 @@ final class McfAuth
                 $user,
                 $remember,
             );
+            $user->last_login_at = now();
+            $user->save();
 
             McfAuthAudit::record(
                 action: 'login',
