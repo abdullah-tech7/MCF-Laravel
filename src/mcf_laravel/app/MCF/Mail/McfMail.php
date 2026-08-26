@@ -17,12 +17,6 @@ final class McfMail
     |--------------------------------------------------------------------------
     | Send
     |--------------------------------------------------------------------------
-    |
-    | Default email delivery.
-    |
-    | Change the implementation here if the framework/application
-    | needs to switch between queued and direct delivery.
-    |
     */
 
     public static function send(
@@ -45,6 +39,11 @@ final class McfMail
         string $to,
         Mailable $mail,
     ): void {
+
+        $mail->locale(
+            app()->getLocale(),
+        );
+
         Mail::to($to)->queue($mail);
     }
 
@@ -58,6 +57,11 @@ final class McfMail
         string $to,
         Mailable $mail,
     ): void {
+
+        $mail->locale(
+            app()->getLocale(),
+        );
+
         Mail::to($to)->send($mail);
     }
 
@@ -72,6 +76,11 @@ final class McfMail
         string $to,
         Mailable $mail,
     ): void {
+
+        $mail->locale(
+            app()->getLocale(),
+        );
+
         Mail::to($to)->later(
             $delay,
             $mail,

@@ -151,6 +151,20 @@ final class InstallGenerator
             destination: $basePath . '/config/filesystems.php',
         );
 
+          /*
+        |--------------------------------------------------------------------------
+        | config/queue.php
+        |--------------------------------------------------------------------------
+        |
+        | MCF provides the queue configuration
+        |
+        */
+
+        $this->copyFile(
+            source: $sourcePath . '/config/queue.php',
+            destination: $basePath . '/config/queue.php',
+        );
+
          /*
         |--------------------------------------------------------------------------
         | config/mail.php
@@ -266,6 +280,7 @@ final class InstallGenerator
             'bootstrap/app.php',
             'config/filesystems.php',
             'config/mail.php',
+            'config/queue.php',
         ];
 
         foreach ($files as $file) {
