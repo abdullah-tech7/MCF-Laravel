@@ -12,13 +12,13 @@ final readonly class AuditDefinition
 {
     /**
      * @param string[] $columns
-     * @param array<string, mixed>|null $condition
+     * @param array<string, mixed>|Closure(Model): bool|null $condition
      * @param Closure(Model): NotificationRequest|null $notification
      */
     public function __construct(
         public string $action,
         public array $columns,
-        public ?array $condition,
+        public array|Closure|null $condition,
         public string $message,
         public ?Closure $notification = null,
     ) {

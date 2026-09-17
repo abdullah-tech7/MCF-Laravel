@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\MCF\Audit\Internal;
 
 use App\MCF\Audit\Data\AuditDefinition;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use LogicException;
@@ -37,13 +38,10 @@ final class AuditDefinitionValidator
             'columns',
         );
 
-        $this->validateColumns(
-            $this->conditionColumns(
-                $definition->condition,
-            ),
+        $this->validateCondition(
+            $definition->condition,
             $columns,
             $model,
-            'condition',
         );
     }
 
@@ -116,22 +114,40 @@ final class AuditDefinitionValidator
     }
 
     /**
-     * Extract column names from the condition.
+     * Validate the configured condition.
      *
-     * @param array<string, mixed>|null $condition
+     * Array conditions are validated against
+     * the model table columns.
      *
-     * @return string[]
+     * Closure conditions are dynamic and therefore
+     * do not require column validation.
+     *
+     * @param array<string, mixed>|Closure(Model): bool|null $condition
+     * @param string[] $databaseColumns
+     *
+     * @throws LogicException
      */
-    private function conditionColumns(
-        ?array $condition,
-    ): array {
+    private function validateCondition(
+        array|Closure|null $condition,
+        array $databaseColumns,
+        Model $model,
+    ): void {
         if (
             $condition === null
             || $condition === []
         ) {
-            return [];
+            return;
         }
 
-        return array_keys($condition);
+        if ($condition instanceof Closure) {
+            return;
+        }
+
+        $this->validateColumns(
+            array_keys($condition),
+            $databaseColumns,
+            $model,
+            'condition',
+        );
     }
 }

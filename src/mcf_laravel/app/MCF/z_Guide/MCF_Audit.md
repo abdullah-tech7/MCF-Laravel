@@ -434,31 +434,211 @@ For `create` and `delete`, `columns` is skipped completely. Evaluation proceeds 
 
 ---
 
-# Condition
+## Condition
 
-A condition restricts the Audit based on a row value:
+A condition restricts when an Audit Definition is applied.
+
+MCF supports two condition types:
+
+1. **Array condition** — checks Model column values.
+2. **Closure condition** — evaluates custom logic using the Model instance.
+
+---
+
+### Array Condition
+
+Use an array condition when the Audit depends directly on one or more column values from the Model's table.
+
+Example:
 
 ```php
 condition: [
     'role_id' => 5,
 ],
+````
+
+This means the Audit is applied only when the configured column matches the configured value.
+
+Multiple columns can be configured:
+
 ```
-
-or:
-
-```php
 condition: [
+    'role_id' => 5,
     'is_active' => true,
 ],
 ```
 
-No condition:
+All configured conditions must match.
 
-```php
+#### Column Validation
+
+Every column used in an array condition must exist in the Model's database table.
+
+A missing configured column is considered a configuration error and must throw an `Exception` during Audit Definition validation.
+
+Example:
+
+```
+condition: [
+    'unknown_column' => true,
+],
+```
+
+If `unknown_column` does not exist in the Model's table, the Audit Definition is invalid.
+
+This validation ensures configuration errors are detected during development instead of silently preventing the Audit from being applied.
+
+***
+
+### Closure Condition
+
+Use a Closure condition when the Audit requires custom logic that cannot be expressed as simple column-value matching.
+
+The Closure receives the Model instance and must return a boolean.
+
+Example:
+
+```
+condition: fn(Model $model): bool =>
+    $model->created_by === McfAuth::id()
+    && McfAuth::user()?->role_id === 3,
+```
+
+The Audit is applied only when the Closure returns:
+
+```
+true
+```
+
+If the Closure returns:
+
+```
+false
+```
+
+the Audit Definition is skipped.
+
+Closures are useful when the condition depends on:
+
+* Multiple Model values
+* The authenticated user
+* Relationships or related data
+* Runtime application state
+* Custom business rules
+
+Example:
+
+```
+condition: fn(Model $model): bool =>
+    $model->created_by === McfAuth::id(),
+```
+
+Another example:
+
+```
+condition: fn(Model $model): bool =>
+    $model->created_by === McfAuth::id()
+    && McfAuth::user()?->role_id === 2,
+```
+
+***
+
+### No Condition
+
+If the Audit Definition should always be applicable, use:
+
+```
 condition: null,
 ```
 
-Condition columns must exist in the Model's table. A missing configured column should throw an Exception during Definition validation so the developer can fix the configuration.
+No condition means that no additional condition is applied to the Audit Definition.
+
+***
+
+### Choosing the Condition Type
+
+Use an **array condition** when the requirement is a direct comparison against Model columns:
+
+```
+condition: [
+    'status_id' => 1,
+],
+```
+
+Use a **Closure condition** when the requirement contains custom logic that cannot be represented as simple column-value matching:
+
+```
+condition: fn(Model $model): bool =>
+    $model->created_by === McfAuth::id()
+    && McfAuth::user()?->role_id === 3,
+```
+
+Use:
+
+```
+condition: null,
+```
+
+when no condition is required.
+
+***
+
+### Condition Types Summary
+
+| Condition | Purpose                              |
+| --------- | ------------------------------------ |
+| `null`    | Always applicable                    |
+| `array`   | Direct Model column-value matching   |
+| `Closure` | Custom runtime logic using the Model |
+
+Examples:
+
+```
+// No condition
+condition: null,
+```
+
+```
+// Column-based condition
+condition: [
+    'status_id' => 1,
+],
+```
+
+```
+// Custom condition
+condition: fn(Model $model): bool =>
+    $model->created_by === McfAuth::id()
+    && McfAuth::user()?->role_id === 3,
+```
+
+### Condition Behavior
+
+```
+condition: null
+        ↓
+Audit Definition is applicable
+
+
+condition: [column => value]
+        ↓
+MCF checks the configured Model column(s)
+        ↓
+All conditions match
+        ↓
+Audit Definition is applicable
+
+
+condition: fn(Model $model): bool => ...
+        ↓
+MCF passes the Model instance to the Closure
+        ↓
+Closure returns true / false
+        ↓
+true  → Audit Definition is applicable
+false → Audit Definition is skipped
+```
+
 
 ---
 
