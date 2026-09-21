@@ -36,6 +36,7 @@ app/
     ├── Notification/
     ├── Realtime/
     ├── Result/
+    ├── Settings/
     ├── Sms/
     ├── Storage/
     ├── z_Guide/
@@ -141,6 +142,7 @@ Middleware
 Notification
 Realtime
 Result
+Settings
 Sms
 Storage
 ```
@@ -254,6 +256,7 @@ app/MCF
 ├── Middleware
 ├── Notification
 ├── Result
+├── Settings
 └── Sms
 ```
 
@@ -846,9 +849,299 @@ common MCF behavior and conventions.
 
 ------------------------------------------------------------------------
 
+# Settings
+
+MCF Settings is a framework-level configuration and user-preference system.
+It provides infrastructure for defining settings, storing their definitions,
+resolving effective values, validating changes, updating user overrides, and
+resetting them to their defaults.
+
+The Settings architecture separates the stable definition of a setting from
+the mutable value selected by a user.
+
+``` text
+Setting Definition
+      ↓
+mcf_setting_data
+      │
+      │ definition
+      ▼
+mcf_settings
+      │
+      │ user override
+      ▼
+Effective Value
+```
+
+## Setting Definition
+
+`mcf_setting_data` is the definition side of the Settings architecture.
+
+It describes what a setting is, rather than what a particular user selected.
+
+A definition can contain:
+
+``` text
+category
+key
+name
+subtitle
+type
+options
+default value
+roles
+```
+
+Definitions are represented through `SettingData`.
+
+The `key` is the stable technical identifier. It should be unique,
+language-independent, and suitable for programmatic use.
+
+Display names and subtitles are presentation data and can be localized.
+
+## User Overrides
+
+`mcf_settings` stores user-specific setting values.
+
+It does not redefine the setting.
+
+``` text
+mcf_setting_data
+    = Stable Setting Definition
+
+mcf_settings
+    = User Override
+```
+
+A user does not need a row in `mcf_settings` when using the default value.
+
+For example:
+
+``` text
+Definition:
+    default = 20
+
+User:
+    no override
+
+Effective:
+    20
+```
+
+If the user changes the value:
+
+``` text
+Definition Default = 20
+User Override      = 50
+Effective Value    = 50
+```
+
+The definition remains unchanged. Different users can therefore have different
+overrides while sharing the same setting definition.
+
+## Effective Value
+
+The effective value is resolved using:
+
+``` text
+User Override exists?
+       │
+   ┌───┴───┐
+  Yes      No
+   │        │
+   ▼        ▼
+ User     Default
+ Value     Value
+```
+
+The definition's default is the fallback value when no user override exists.
+
+## Reset
+
+Resetting a setting removes the user's override.
+
+``` text
+User Override
+      ↓
+Delete Override
+      ↓
+Definition Default
+```
+
+Reset All removes user overrides from `mcf_settings` without deleting setting
+definitions or changing their defaults, options, types, or categories.
+
+Therefore:
+
+``` text
+Reset = Remove User Override
+```
+
+not:
+
+``` text
+Reset = Save Default as User Value
+```
+
+## Setting Types
+
+MCF Settings supports:
+
+``` text
+boolean
+select
+radio
+multiselect
+text
+number
+textarea
+```
+
+For `select`, `radio`, and `multiselect`, the stored value is the option key,
+while the display label is presentation data.
+
+Example:
+
+``` php
+[
+    'website' => 'Website',
+    'email' => 'Email',
+]
+```
+
+The stored value is:
+
+``` text
+website
+```
+
+not:
+
+``` text
+Website
+```
+
+## Validation
+
+Setting values are validated according to their definition:
+
+``` text
+boolean      → true / false
+select       → value must exist in options
+radio        → value must exist in options
+multiselect  → array; every value must exist in options
+text         → string
+textarea     → string
+number       → numeric value
+```
+
+## Roles
+
+A setting may specify roles that can see it:
+
+``` php
+roles: [1, 3]
+```
+
+or:
+
+``` php
+roles: null
+```
+
+In the Settings architecture, `roles` defines **visibility**.
+
+It does not replace MCF Access Control or application authorization.
+
+## Dynamic UI
+
+Settings are designed so the application UI can be generated from the
+definition instead of hard-coding every setting:
+
+``` text
+boolean     → Toggle / Checkbox
+select      → Select
+radio       → Radio Group
+multiselect → Multi Select
+text        → Text Input
+number      → Number Input
+textarea    → Textarea
+```
+
+The UI consumes the definition, current value, default value, and options and
+renders the appropriate control.
+
+## Database Architecture
+
+MCF Settings includes framework-level database migrations for:
+
+``` text
+mcf_setting_data
+mcf_settings
+```
+
+These tables belong to the MCF framework infrastructure.
+
+The architectural separation is intentional:
+
+``` text
+mcf_setting_data
+    = Framework Setting Definitions
+
+mcf_settings
+    = Mutable User Overrides
+```
+
+Setting definitions are shared framework data. User overrides are mutable
+user-specific data.
+
+The fundamental rule is:
+
+``` text
+Definition is stable.
+User values are mutable.
+User changes never modify the Definition.
+Reset removes the User Override and restores the Default.
+```
+
+## Settings Flow
+
+Reading a setting follows:
+
+``` text
+Load Definition
+      ↓
+Resolve Current User
+      ↓
+Load User Override
+      ↓
+Resolve Effective Value
+      ↓
+Return Setting Data
+```
+
+Saving follows:
+
+``` text
+Identify Setting by key
+      ↓
+Load Definition
+      ↓
+Validate Value
+      ↓
+Create / Update User Override
+      ↓
+Return Result
+```
+
+The save operation changes the user's override, not the setting definition.
+
+
 # MCF Configuration and Optional Components
 
-MCF provides settings for its framework components.
+MCF provides configuration mechanisms for its framework components. MCF
+Settings is the framework-level system for settings that require definitions,
+defaults, user-specific overrides, validation, and reset behavior.
 
 When a component supports enabling or disabling, the preferred approach
 is to use its settings rather than deleting its directory.
@@ -1011,6 +1304,19 @@ php artisan migrate --seed
 MCF database tables can be extended according to application
 requirements.
 
+For MCF Settings, the framework provides the two related tables:
+
+``` text
+mcf_setting_data
+    → setting definitions
+
+mcf_settings
+    → user-specific overrides
+```
+
+The definition table and user-value table have different responsibilities and
+should remain logically separated.
+
 Because framework components may depend on these tables, developers
 should understand the dependencies before removing or replacing MCF
 database structures.
@@ -1099,6 +1405,7 @@ The guide covers:
 -   Mail.
 -   Notifications.
 -   SMS.
+-   Settings.
 -   Storage.
 -   Other MCF systems.
 
@@ -1127,6 +1434,7 @@ app/MCF
 │   ├── Mail
 │   ├── Notification
 │   ├── Realtime
+│   ├── Settings
 │   ├── Storage
 │   └── ...
 │
@@ -1171,6 +1479,7 @@ Depending on the component, this can include:
 
 -   Loading MCF configuration.
 -   Registering MCF services.
+-   Initializing Settings infrastructure where enabled.
 -   Discovering Modules and Workflows.
 -   Registering Workflow routes.
 -   Registering Workflow views.
@@ -1376,6 +1685,7 @@ AccessControl
 Audit
 Notification
 Mail
+Settings
 Storage
 Realtime
 Queue / Jobs
@@ -1414,6 +1724,8 @@ MCF follows these principles:
     polling logic in Views.
 -   Keep background execution on Laravel Queue / Jobs.
 -   Expose authentication and access through MCF public APIs in Views.
+-   Keep setting definitions separate from user-specific setting overrides.
+-   Treat setting defaults as fallbacks rather than duplicating them per user.
 
 ------------------------------------------------------------------------
 
@@ -1432,6 +1744,8 @@ and contains:
 ``` text
 Framework Components
         +
+Settings Infrastructure
+        +
 Modules / Workflows
         +
 Documentation
@@ -1441,7 +1755,8 @@ MCF Integration Files
 
 Modules and Workflows organize application features, while the
 framework-level directories provide shared infrastructure used across
-those features.
+those features. Settings is part of that shared infrastructure and separates
+framework setting definitions from mutable user-specific overrides.
 
 MCF also integrates routes, views, language resources, realtime
 channels, queue/jobs, database structures, configuration, installation

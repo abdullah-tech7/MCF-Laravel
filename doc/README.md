@@ -27,6 +27,8 @@ Key features include:
 -   **Mail** through a lightweight MCF API on top of Laravel Mail.
 -   **SMS** through provider-independent SMS services.
 -   **Storage** through provider-independent storage abstractions.
+-   **Settings** through framework-defined setting definitions, user overrides,
+    validation, defaults, and reset support.
 -   **Language** through centralized JSON translations.
 -   **Result** objects for predictable operation states.
 -   **Middleware** for framework-level request behavior.
@@ -92,6 +94,7 @@ are intentionally simple so they can be studied and customized.
     -   [Language](#5-language)
     -   [Mail](#6-mail)
     -   [Notification](#7-notification)
+    -   [Settings](#13-settings)
     -   [SMS](#8-sms)
     -   [Middleware](#9-middleware)
         -   [McfAccessMiddleware](#mcfaccessmiddleware)
@@ -296,6 +299,7 @@ app/
     ├── Modules/
     ├── Notification/
     ├── Result/
+    ├── Settings/
     ├── Sms/
     ├── Storage/
     ├── z_Guide/
@@ -518,6 +522,7 @@ app/
     │
     ├── Notification/
     ├── Result/
+    ├── Settings/
     ├── Sms/
     ├── Storage/
     ├── z_Guide/
@@ -1859,6 +1864,220 @@ MCF.realtime(channel, options)
 Realtime is designed to remain simple for application developers and
 does not require the runtime to be manually included in every View.
 
+## 13. Settings {#13-settings}
+
+MCF Settings provides a framework-level system for defining, storing, resolving,
+validating, updating, and resetting application settings.
+
+The Settings system separates the **setting definition** from the
+**user-specific value**. It is based on two related database tables:
+
+``` text
+mcf_setting_data
+       │
+       │ Setting Definition
+       ▼
+mcf_settings
+       │
+       │ User Value / Override
+       ▼
+Effective Value
+```
+
+`mcf_setting_data` contains the stable definition of a setting, while
+`mcf_settings` stores only the user-specific override when one exists.
+
+### Setting Definition
+
+A setting definition can describe:
+
+``` text
+category
+key
+name
+subtitle
+type
+options
+default value
+roles
+```
+
+Definitions are represented through `SettingData`.
+
+The `key` is the stable technical identifier and should be unique,
+language-independent, and suitable for programmatic use. Display names and
+subtitles can be localized.
+
+### Setting Types
+
+MCF Settings supports:
+
+``` text
+boolean
+select
+radio
+multiselect
+text
+number
+textarea
+```
+
+For `select`, `radio`, and `multiselect`, options use stable stored keys with
+display labels:
+
+``` php
+[
+    'website' => 'Website',
+    'email' => 'Email',
+]
+```
+
+The stored value is the option key, not the display label.
+
+### Defaults and User Overrides
+
+The definition stores the default value:
+
+``` text
+mcf_setting_data
+    default = 20
+```
+
+A user who has not changed the setting does not need a row in
+`mcf_settings`. The effective value falls back to the default.
+
+If the user changes the value:
+
+``` text
+Definition Default = 20
+User Override      = 50
+Effective Value    = 50
+```
+
+The definition is not modified. Multiple users can therefore have different
+overrides while sharing the same framework definition.
+
+### Reset
+
+Resetting a setting removes the user's override from `mcf_settings`.
+
+``` text
+User Override
+      ↓
+Delete Override
+      ↓
+Use Definition Default
+```
+
+Reset All follows the same principle: it removes user overrides without
+deleting setting definitions or changing their defaults, options, types, or
+categories.
+
+### Validation and Visibility
+
+Setting values are validated according to their definition:
+
+``` text
+boolean      → true / false
+select       → value must exist in options
+radio        → value must exist in options
+multiselect  → array; every value must exist in options
+text         → string
+textarea     → string
+number       → numeric value
+```
+
+A setting may specify `roles` to control which roles can see it:
+
+``` php
+roles: [1, 3]
+```
+
+or:
+
+``` php
+roles: null
+```
+
+`roles` defines **visibility**, not authorization. Application authorization
+remains the responsibility of the application's Access Control system.
+
+### Dynamic Settings UI
+
+MCF can expose setting metadata and effective values so a UI can render the
+appropriate control dynamically:
+
+``` text
+boolean     → Toggle / Checkbox
+select      → Select
+radio       → Radio Group
+multiselect → Multi Select
+text        → Text Input
+number      → Number Input
+textarea    → Textarea
+```
+
+The frontend therefore does not need to hard-code the structure of every
+setting.
+
+### Framework Database Infrastructure
+
+MCF Settings includes framework-level migrations for:
+
+``` text
+mcf_setting_data
+mcf_settings
+```
+
+These tables are part of the MCF framework infrastructure. Projects using MCF
+Settings do not need to redesign the Settings storage architecture from
+scratch.
+
+The separation is intentional:
+
+``` text
+mcf_setting_data
+    = Stable Framework Setting Definitions
+
+mcf_settings
+    = Mutable User Overrides
+```
+
+The fundamental rule is:
+
+``` text
+Definition is stable.
+User values are mutable.
+User changes never modify the Definition.
+Reset removes the User Override and restores the Default.
+```
+
+### Settings Flow
+
+Reading a setting follows this general flow:
+
+``` text
+Load Definition
+      ↓
+Resolve Current User
+      ↓
+Load User Override
+      ↓
+Override exists?
+   ┌──┴──┐
+  Yes    No
+   │      │
+   ▼      ▼
+Override Default
+   │      │
+   └──┬───┘
+      ▼
+Effective Value
+```
+
+Saving a setting validates the new value against its definition and stores or
+updates the user override. The setting definition itself remains unchanged.
+
 ## 8. SMS {#8-sms}
 
 MCF SMS separates application logic from the SMS provider.
@@ -2437,6 +2656,19 @@ database/
 
 The exact migrations depend on the MCF components installed and used.
 
+For projects using MCF Settings, the framework provides the Settings database
+infrastructure:
+
+``` text
+mcf_setting_data
+    → setting definitions
+
+mcf_settings
+    → user-specific setting overrides
+```
+
+These tables are part of the MCF Settings framework infrastructure.
+
 MCF-provided Models can be:
 
 -   used as provided;
@@ -2905,6 +3137,10 @@ Before removing an optional MCF migration, Model, or component, confirm
 that the related feature is not being used and that no other component
 depends on it.
 
+For MCF Settings, keep the definition/override separation intact:
+`mcf_setting_data` defines the setting, while `mcf_settings` stores
+user-specific overrides.
+
 ### MCF Modules Are Framework Assets
 
 The directories under `app/MCF` are part of the framework installation.
@@ -3120,8 +3356,8 @@ MCF can be understood as four connected layers:
 │                    MCF                      │
 │                                             │
 │ Base · Authentication · Access · Audit      │
-│ Language · Mail · Notification · SMS        │
-│ Realtime · Queue / Jobs · Middleware        │
+│ Language · Mail · Notification · Settings    │
+│ SMS · Realtime · Queue / Jobs · Middleware   │
 │ Result                                      │
 └──────────────────────┬──────────────────────┘
                        │
@@ -3160,8 +3396,8 @@ README
 ```
 
 Then use the individual guides for Authentication, Access Control,
-Audit, Notification, Storage, Modules, Workflows, Requests, Endpoints,
-Commands, and other components.
+Audit, Notification, Settings, Storage, Modules, Workflows, Requests,
+Endpoints, Commands, and other components.
 
 # License
 
