@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare (strict_types = 1);
 
 namespace MCF\Support;
 
@@ -86,11 +86,15 @@ class MCFViewFinder extends FileViewFinder
             $view = implode('.', $segments);
 
             $paths = [];
-
             foreach ($this->hints[$namespace] as $modulePath) {
 
+                $modulePath = rtrim(
+                    $modulePath,
+                    DIRECTORY_SEPARATOR,
+                );
+
                 $workflowViewsPath =
-                    rtrim($modulePath, DIRECTORY_SEPARATOR)
+                    $modulePath
                     . DIRECTORY_SEPARATOR
                     . $workflow
                     . DIRECTORY_SEPARATOR
@@ -98,6 +102,33 @@ class MCFViewFinder extends FileViewFinder
 
                 if ($this->files->isDirectory($workflowViewsPath)) {
                     $paths[] = $workflowViewsPath;
+
+                    continue;
+                }
+
+                if (! $this->files->isDirectory($modulePath)) {
+                    continue;
+                }
+
+                foreach ($this->files->directories($modulePath) as $directory) {
+
+                    $directoryName = basename($directory);
+
+                    if (
+                        strtolower($directoryName)
+                        !== strtolower($workflow)
+                    ) {
+                        continue;
+                    }
+
+                    $viewsPath =
+                        $directory
+                        . DIRECTORY_SEPARATOR
+                        . 'Views';
+
+                    if ($this->files->isDirectory($viewsPath)) {
+                        $paths[] = $viewsPath;
+                    }
                 }
             }
 
